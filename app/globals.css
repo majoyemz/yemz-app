@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --coral: #E86C52;
+  --gem-empty: #E8E8E8;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+}
+
+/* Editorial serif for headings */
+h1, h2, h3 {
+  font-family: Georgia, "Times New Roman", serif;
+}

@@ -167,7 +167,7 @@ def clean_row(row: dict, headers: list) -> dict:
         raw = row.get(orig_col, "") or ""
         clean_col = COLUMN_MAP.get(orig_col, orig_col.lower().replace(" ", "_"))
 
-        value = fix_encoding(raw)
+        value = raw  # encoding handled at file-open time
 
         if orig_col in URL_COLS:
             value = fix_url(value)
@@ -186,21 +186,35 @@ def clean_row(row: dict, headers: list) -> dict:
 
 # ── File I/O ───────────────────────────────────────────────────────────────────
 
-def detect_delimiter(path: str) -> str:
+def detect_delimiter(path: str, encoding: str) -> str:
     """Sniff whether the file is tab- or comma-delimited."""
-    with open(path, "r", encoding="utf-8-sig", errors="replace") as f:
+    with open(path, "r", encoding=encoding, errors="replace") as f:
         sample = f.read(4096)
     tabs   = sample.count("\t")
     commas = sample.count(",")
     return "\t" if tabs > commas else ","
 
 
+def detect_encoding(path: str) -> str:
+    """Return 'windows-1252' if file has non-UTF-8 bytes, else 'utf-8-sig'."""
+    with open(path, "rb") as f:
+        raw = f.read(65536)
+    try:
+        raw.decode("utf-8")
+        return "utf-8-sig"
+    except UnicodeDecodeError:
+        return "windows-1252"
+
+
 def main(input_path: str, output_path: str):
-    delim = detect_delimiter(input_path)
+    enc = detect_encoding(input_path)
+    print(f"Detected encoding: {enc}")
+
+    delim = detect_delimiter(input_path, enc)
     delim_name = "TAB" if delim == "\t" else "COMMA"
     print(f"Detected delimiter: {delim_name}")
 
-    with open(input_path, "r", encoding="utf-8-sig", errors="replace") as f:
+    with open(input_path, "r", encoding=enc, errors="replace") as f:
         reader = csv.DictReader(f, delimiter=delim)
         headers = reader.fieldnames or []
         rows = list(reader)

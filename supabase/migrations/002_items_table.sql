@@ -3,7 +3,10 @@
 
 CREATE EXTENSION IF NOT EXISTS postgis;
 
-CREATE TABLE IF NOT EXISTS items (
+-- Drop and recreate to ensure the schema is exactly as defined below
+DROP TABLE IF EXISTS items CASCADE;
+
+CREATE TABLE items (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   bubble_id       TEXT        UNIQUE,
   name            TEXT        NOT NULL,
@@ -49,6 +52,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_items_location ON items;
 CREATE TRIGGER trg_items_location
   BEFORE INSERT OR UPDATE ON items
   FOR EACH ROW EXECUTE FUNCTION items_set_location();

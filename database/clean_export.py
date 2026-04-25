@@ -19,6 +19,7 @@ What it fixes:
 """
 
 import csv
+import io
 import re
 import sys
 from datetime import datetime
@@ -186,27 +187,39 @@ def clean_row(row: dict, headers: list) -> dict:
 
 # ── File I/O ───────────────────────────────────────────────────────────────────
 
-def detect_delimiter(path: str) -> str:
-    """Sniff whether the file is tab- or comma-delimited."""
-    with open(path, "r", encoding="windows-1252", errors="replace") as f:
-        sample = f.read(4096)
-    tabs   = sample.count("\t")
-    commas = sample.count(",")
-    return "\t" if tabs > commas else ","
+def load_file(path: str):
+    """
+    Read entire file as raw bytes, then decode with the right encoding.
+    - Try UTF-8 first (strict). If the file is valid UTF-8 (even with BOM),
+      mojibake like 'Ã©' is already in the text and fix_encoding() will fix it.
+    - If UTF-8 fails, decode as windows-1252 so single-byte accented chars
+      like é (0xE9) become real Unicode; fix_encoding() repairs any remaining
+      mojibake from there.
+    Returns (text, encoding_name).
+    """
+    with open(path, "rb") as f:
+        raw = f.read()
+    try:
+        text = raw.decode("utf-8-sig")
+        return text, "utf-8"
+    except UnicodeDecodeError:
+        text = raw.decode("windows-1252", errors="replace")
+        return text, "windows-1252"
 
 
 def main(input_path: str, output_path: str):
-    # Always read as windows-1252: covers both plain Windows-1252 files and
-    # UTF-8 files where accented chars were saved as single-byte Latin-1 values.
-    # fix_encoding() then repairs any remaining UTF-8-as-Latin-1 mojibake.
-    delim = detect_delimiter(input_path)
+    text, enc = load_file(input_path)
+    print(f"Detected encoding: {enc}")
+
+    # Detect delimiter from the first line
+    first_line = text.split("\n")[0]
+    delim = "\t" if first_line.count("\t") > first_line.count(",") else ","
     delim_name = "TAB" if delim == "\t" else "COMMA"
     print(f"Detected delimiter: {delim_name}")
 
-    with open(input_path, "r", encoding="windows-1252", errors="replace") as f:
-        reader = csv.DictReader(f, delimiter=delim)
-        headers = reader.fieldnames or []
-        rows = list(reader)
+    reader = csv.DictReader(io.StringIO(text), delimiter=delim)
+    headers = reader.fieldnames or []
+    rows = list(reader)
 
     print(f"Columns found ({len(headers)}): {headers}")
     print(f"Rows found: {len(rows)}")
